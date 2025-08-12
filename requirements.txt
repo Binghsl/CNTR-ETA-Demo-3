@@ -4,4 +4,3 @@ pandas
 openpyxl
 playwright
 python-multipart
-streamlit
