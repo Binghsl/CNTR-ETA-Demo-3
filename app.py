@@ -8,7 +8,7 @@ from playwright.async_api import async_playwright
 app = FastAPI()
 
 @app.get("/")
-async def root():
+def root():
     return {"status": "ETA backend is running"}
 
 async def track_one_bl(mbl: str):
@@ -20,7 +20,6 @@ async def track_one_bl(mbl: str):
         await page.get_by_role("button", name="Track").click()
         await page.wait_for_timeout(5000)
         content = await page.content()
-
         eta = "Not Found"
         try:
             if "ETA" in content:
@@ -33,34 +32,24 @@ async def track_one_bl(mbl: str):
 
 @app.post("/track")
 async def upload_excel(file: UploadFile = File(...)):
-    contents = await file.read()
-    df = pd.read_excel(BytesIO(contents))
-
+    df = pd.read_excel(file.file)
     results = []
     for _, row in df.iterrows():
         sci = row.get("SCI")
         carrier = str(row.get("CARRIER")).strip().upper()
         mbl = str(row.get("Master BL")).strip()
-
         if carrier == "ONE" and mbl:
             try:
                 eta = await track_one_bl(mbl)
                 results.append({
-                    "SCI": sci,
-                    "CARRIER": carrier,
-                    "Master BL": mbl,
-                    "ETA": eta,
-                    "Raw Info": f"ETA: {eta}"
+                    "SCI": sci, "CARRIER": carrier, "Master BL": mbl,
+                    "ETA": eta, "Raw Info": f"ETA: {eta}"
                 })
             except Exception as e:
                 results.append({
-                    "SCI": sci,
-                    "CARRIER": carrier,
-                    "Master BL": mbl,
-                    "ETA": "ERROR",
-                    "Raw Info": str(e)
+                    "SCI": sci, "CARRIER": carrier, "Master BL": mbl,
+                    "ETA": "ERROR", "Raw Info": str(e)
                 })
-
     output_df = pd.DataFrame(results)
     stream = BytesIO()
     output_df.to_excel(stream, index=False)
