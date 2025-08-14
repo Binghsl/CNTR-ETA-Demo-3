@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import StreamingResponse
 import pandas as pd
@@ -8,19 +7,18 @@ from playwright.async_api import async_playwright
 app = FastAPI()
 
 @app.get("/")
-async def root():
+async def health_check():
     return {"status": "ETA backend is running"}
 
 async def track_one_bl(mbl: str):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto("https://ecomm.one-line.com/one-ecom/searchContainer")
+        await page.goto("https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking")
         await page.get_by_placeholder("B/L or Booking or Container No").fill(mbl)
         await page.get_by_role("button", name="Track").click()
         await page.wait_for_timeout(5000)
         content = await page.content()
-
         eta = "Not Found"
         try:
             if "ETA" in content:
@@ -33,12 +31,8 @@ async def track_one_bl(mbl: str):
 
 @app.post("/track")
 async def upload_excel(file: UploadFile = File(...)):
-    try:
-        contents = await file.read()
-        df = pd.read_excel(BytesIO(contents))
-    except Exception as e:
-        return {"error": f"Failed to read Excel file: {str(e)}"}
-
+    contents = await file.read()
+    df = pd.read_excel(BytesIO(contents))
     results = []
     for _, row in df.iterrows():
         sci = row.get("SCI")
@@ -68,8 +62,4 @@ async def upload_excel(file: UploadFile = File(...)):
     stream = BytesIO()
     output_df.to_excel(stream, index=False)
     stream.seek(0)
-    return StreamingResponse(
-        stream,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=ETA_Results.xlsx"}
-    )
+    return StreamingResponse(stream, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=ETA_Results.xlsx"})
