@@ -28,7 +28,8 @@ async def track_one_bl(mbl: str):
 
 @app.post("/track")
 async def upload_excel(file: UploadFile = File(...)):
-    df = pd.read_excel(file.file)
+    df = pd.read_excel(BytesIO(file.file.read()))
+
     results = []
     for _, row in df.iterrows():
         sci = row.get("SCI")
@@ -58,5 +59,8 @@ async def upload_excel(file: UploadFile = File(...)):
     stream = BytesIO()
     output_df.to_excel(stream, index=False)
     stream.seek(0)
-    return StreamingResponse(stream, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=ETA_Results.xlsx"})
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=ETA_Results.xlsx"}
+    )
