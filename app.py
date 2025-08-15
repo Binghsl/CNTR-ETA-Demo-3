@@ -21,20 +21,24 @@ async def track_one_bl(mbl: str):
         try:
             eta_element = await page.locator("div:has-text('Arrival') + div").nth(0)
             eta = await eta_element.inner_text()
-        except:
+        except Exception:
             eta = "Not Found"
         await browser.close()
         return eta.strip()
 
 @app.post("/track")
 async def upload_excel(file: UploadFile = File(...)):
-    df = pd.read_excel(BytesIO(file.file.read()))
+    contents = await file.read()
+    df = pd.read_excel(BytesIO(contents))
+
+    # Normalize columns for robustness
+    df.columns = [str(col).strip().upper() for col in df.columns]
 
     results = []
     for _, row in df.iterrows():
         sci = row.get("SCI")
         carrier = str(row.get("CARRIER")).strip().upper()
-        mbl = str(row.get("Master BL")).strip()
+        mbl = str(row.get("MASTER BL")).strip()
 
         if carrier == "ONE" and mbl:
             try:
