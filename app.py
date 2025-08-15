@@ -14,9 +14,14 @@ async def track_one_bl(mbl: str):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto("https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking")
-        await page.locator("input[placeholder='Container, Booking or B/L No.']").fill(mbl)
+        await page.goto("https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking", wait_until="domcontentloaded")
+        # Wait for the textarea for Master BL
+        await page.wait_for_selector("textarea#searchName", timeout=20000)
+        # Fill the Master BL number
+        await page.fill("textarea#searchName", mbl)
+        # Click the Track button (assumes there is a button with role and name "Track")
         await page.get_by_role("button", name="Track").click()
+        # Wait for the result
         await page.wait_for_selector("text=Vessel/Voyage", timeout=15000)
         try:
             eta_element = await page.locator("div:has-text('Arrival') + div").nth(0)
@@ -37,8 +42,8 @@ async def upload_excel(file: UploadFile = File(...)):
     results = []
     for _, row in df.iterrows():
         sci = row.get("SCI")
-        carrier = str(row.get("CARRIER")).strip().upper()
-        mbl = str(row.get("MASTER BL")).strip()
+        carrier = str(row.get("CARRIER") or "").strip().upper()
+        mbl = str(row.get("MASTER BL") or "").strip()
 
         if carrier == "ONE" and mbl:
             try:
