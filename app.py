@@ -14,36 +14,35 @@ async def track_one_bl(mbl: str):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto("https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking", wait_until="domcontentloaded")
-        # Wait for the textarea for Master BL
-        await page.wait_for_selector("textarea#searchName", timeout=20000)
-        # Fill the Master BL number
-        await page.fill("textarea#searchName", mbl)
-        # Click the Track button (assumes there is a button with role and name "Track")
-        await page.get_by_role("button", name="Track").click()
-        # Wait for the result
+        await page.goto("https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking")
+
+        # Use updated placeholder text from new ONE page
+        input_locator = page.locator("input[placeholder='BL No. or Booking No. Container No. Purchase Order No. All']")
+        await input_locator.wait_for(timeout=15000)
+        await input_locator.fill(mbl)
+
+        # Click "Search" instead of "Track" (new button label)
+        await page.get_by_role("button", name="Search").click()
         await page.wait_for_selector("text=Vessel/Voyage", timeout=15000)
+
         try:
-            eta_element = await page.locator("div:has-text('Arrival') + div").nth(0)
-            eta = await eta_element.inner_text()
-        except Exception:
+            eta_elem = await page.locator("div:has-text('Arrival') + div").first
+            eta = await eta_elem.inner_text()
+        except:
             eta = "Not Found"
+
         await browser.close()
         return eta.strip()
 
 @app.post("/track")
 async def upload_excel(file: UploadFile = File(...)):
-    contents = await file.read()
-    df = pd.read_excel(BytesIO(contents))
-
-    # Normalize columns for robustness
-    df.columns = [str(col).strip().upper() for col in df.columns]
-
+    df = pd.read_excel(BytesIO(file.file.read()))
     results = []
+
     for _, row in df.iterrows():
         sci = row.get("SCI")
-        carrier = str(row.get("CARRIER") or "").strip().upper()
-        mbl = str(row.get("MASTER BL") or "").strip()
+        carrier = str(row.get("CARRIER")).strip().upper()
+        mbl = str(row.get("Master BL")).strip()
 
         if carrier == "ONE" and mbl:
             try:
@@ -68,6 +67,7 @@ async def upload_excel(file: UploadFile = File(...)):
     stream = BytesIO()
     output_df.to_excel(stream, index=False)
     stream.seek(0)
+
     return StreamingResponse(
         stream,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
