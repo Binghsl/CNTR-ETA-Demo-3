@@ -7,7 +7,7 @@ from playwright.async_api import async_playwright
 app = FastAPI()
 
 @app.get("/")
-async def health_check():
+def status():
     return {"status": "ETA backend is running"}
 
 async def track_one_bl(mbl: str):
@@ -15,24 +15,20 @@ async def track_one_bl(mbl: str):
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         await page.goto("https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking")
-        await page.get_by_placeholder("B/L or Booking or Container No").fill(mbl)
+        await page.locator("input[placeholder='Container, Booking or B/L No.']").fill(mbl)
         await page.get_by_role("button", name="Track").click()
-        await page.wait_for_timeout(5000)
-        content = await page.content()
-        eta = "Not Found"
+        await page.wait_for_selector("text=Vessel/Voyage", timeout=15000)
         try:
-            if "ETA" in content:
-                element = await page.query_selector("//div[contains(text(), 'ETA')]/following-sibling::div")
-                eta = await element.inner_text() if element else "ETA not found"
+            eta_element = await page.locator("div:has-text('Arrival') + div").nth(0)
+            eta = await eta_element.inner_text()
         except:
-            pass
+            eta = "Not Found"
         await browser.close()
         return eta.strip()
 
 @app.post("/track")
 async def upload_excel(file: UploadFile = File(...)):
-    contents = await file.read()
-    df = pd.read_excel(BytesIO(contents))
+    df = pd.read_excel(file.file)
     results = []
     for _, row in df.iterrows():
         sci = row.get("SCI")
@@ -62,4 +58,5 @@ async def upload_excel(file: UploadFile = File(...)):
     stream = BytesIO()
     output_df.to_excel(stream, index=False)
     stream.seek(0)
-    return StreamingResponse(stream, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=ETA_Results.xlsx"})
+    return StreamingResponse(stream, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": "attachment; filename=ETA_Results.xlsx"})
