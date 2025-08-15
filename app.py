@@ -16,18 +16,19 @@ async def track_one_bl(mbl: str):
         page = await browser.new_page()
         await page.goto("https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking")
 
-        # Use updated placeholder text from new ONE page
-        input_locator = page.locator("input[placeholder='BL No. or Booking No. Container No. Purchase Order No. All']")
-        await input_locator.wait_for(timeout=15000)
-        await input_locator.fill(mbl)
+        # Updated locator for the correct input field
+        await page.locator("input#blNo").wait_for(timeout=15000)
+        await page.locator("input#blNo").fill(mbl)
 
-        # Click "Search" instead of "Track" (new button label)
-        await page.get_by_role("button", name="Search").click()
+        # Click the Track button
+        await page.get_by_role("button", name="Track").click()
+
+        # Wait for the results to load
         await page.wait_for_selector("text=Vessel/Voyage", timeout=15000)
 
         try:
-            eta_elem = await page.locator("div:has-text('Arrival') + div").first
-            eta = await eta_elem.inner_text()
+            eta_element = await page.locator("div:has-text('Arrival') + div").nth(0)
+            eta = await eta_element.inner_text()
         except:
             eta = "Not Found"
 
@@ -36,7 +37,7 @@ async def track_one_bl(mbl: str):
 
 @app.post("/track")
 async def upload_excel(file: UploadFile = File(...)):
-    df = pd.read_excel(BytesIO(file.file.read()))
+    df = pd.read_excel(BytesIO(await file.read()))
     results = []
 
     for _, row in df.iterrows():
