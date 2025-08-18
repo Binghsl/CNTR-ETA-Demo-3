@@ -24,13 +24,17 @@ RUN apt-get update && apt-get install -y \
     libgdk-pixbuf-xlib-2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy code
+# Copy source code
 COPY . .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright and its browsers
-RUN python -m playwright install
+# Install Playwright and its browser dependencies
+RUN python -m playwright install --with-deps
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "10000"]
+# Default port is 8000 unless overridden by Render
+ENV PORT=8000
+
+# Use shell form CMD so $PORT resolves at runtime
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port $PORT"]
