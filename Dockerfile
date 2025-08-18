@@ -24,17 +24,17 @@ RUN apt-get update && apt-get install -y \
     libgdk-pixbuf-xlib-2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
+# Copy application code
 COPY . .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright and its browser dependencies
-RUN python -m playwright install --with-deps
+# Install Playwright browsers only (we already installed deps above)
+RUN python -m playwright install
 
-# Default port is 8000 unless overridden by Render
+# Set default port (Render overrides this)
 ENV PORT=8000
 
-# Use shell form CMD so $PORT resolves at runtime
+# Start FastAPI app via Uvicorn
 CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port $PORT"]
