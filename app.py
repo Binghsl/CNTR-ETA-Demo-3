@@ -16,20 +16,19 @@ async def track_one_bl(mbl: str):
         page = await browser.new_page()
         await page.goto("https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking")
 
-        # Updated locator for the correct input field
+        # Wait for the correct input box to appear and fill it
         await page.locator("input#blNo").wait_for(timeout=15000)
-        await page.locator("input#blNo").fill(mbl)
+        await page.fill("input#blNo", mbl)
 
-        # Click the Track button
+        # Click the 'Track' button
         await page.get_by_role("button", name="Track").click()
 
-        # Wait for the results to load
-        await page.wait_for_selector("text=Vessel/Voyage", timeout=15000)
-
         try:
-            eta_element = await page.locator("div:has-text('Arrival') + div").nth(0)
+            # Wait for result to load by checking for presence of ETA section
+            await page.wait_for_selector("text=Arrival", timeout=20000)
+            eta_element = await page.locator("div:has-text('Arrival') + div").first
             eta = await eta_element.inner_text()
-        except:
+        except Exception:
             eta = "Not Found"
 
         await browser.close()
